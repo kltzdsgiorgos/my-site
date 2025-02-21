@@ -4,10 +4,40 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 from django.views.generic import ListView
 from django.db.models import Count
-from .forms import CommentForm, EmailPostForm
+from django.contrib.postgres.search import (
+    SearchVector,
+    SearchQuery,
+    SearchRank,
+    TrigramSimilarity,
+)
+from .forms import CommentForm, EmailPostForm, SearchForm
 
 from .models import Post
 from taggit.models import Tag
+
+
+def post_search(request):
+    form = SearchForm()
+    query = None
+    results = []
+
+    if "query" in request.GET:
+        form = SearchForm(request.GET)
+        if form.is_valid():
+            query = form.cleaned_data["query"]
+            results = (
+                Post.published.annotate(
+                    similarity=TrigramSimilarity("title", query),
+                )
+                .filter(similarity__gt=0.1)
+                .order_by("-similarity")
+            )
+
+    return render(
+        request,
+        "blog/post/search.html",
+        {"form": form, "query": query, "results": results},
+    )
 
 
 class PostListView(ListView):
@@ -31,13 +61,14 @@ def post_list(request, tag_slug=None):
     page_number = request.GET.get("page", 1)
     posts = paginator.get_page(page_number)
 
-    return render(request,
-                  "blog/post/list.html",
-                  {
-                    "posts": posts,
-                    "tag": tag,
-                    }
-                  )
+    return render(
+        request,
+        "blog/post/list.html",
+        {
+            "posts": posts,
+            "tag": tag,
+        },
+    )
 
 
 def post_detail(request, year, month, day, post):
