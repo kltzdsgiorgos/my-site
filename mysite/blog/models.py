@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
+from taggit.managers import TaggableManager
 
 
 class PublishManager(models.Manager):
@@ -44,6 +45,8 @@ class Post(models.Model):
             "blog:post_detail",
             args=[self.publish.year, self.publish.month, self.publish.day, self.slug],
         )
+    
+    tags = TaggableManager()
 
 
 class Comment(models.Model):
